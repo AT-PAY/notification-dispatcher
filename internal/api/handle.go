@@ -88,7 +88,7 @@ func (h *Handle) WSHandler(w http.ResponseWriter, r *http.Request) {
 	h.Dispatcher.Registry.Register(client.UserID, client)
 
 	defer func() {
-		h.Dispatcher.Registry.Unregister(userID)
+		h.Dispatcher.Registry.Unregister(userID, client)
 		err := conn.Close()
 		if err != nil {
 			return
