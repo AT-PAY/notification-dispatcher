@@ -58,8 +58,12 @@ func (h *Handle) SendNotificationHandle(w http.ResponseWriter, r *http.Request) 
 		req.TimeToLive = int64Ptr(h.Config.DefaultTTL)
 	}
 
-	h.Dispatcher.IngestionChan <- req
-
+	//h.Dispatcher.IngestionChan <- req
+	errPR := h.Dispatcher.PublishToRedis(r.Context(), req)
+	if errPR != nil {
+		http.Error(w, "Failed to publish message", http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusAccepted)
 	_, err := w.Write([]byte(`{"status": "accepted", "message": "Notification queued for dispatch"}`))
 	if err != nil {

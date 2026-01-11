@@ -12,6 +12,7 @@ type Config struct {
 	DefaultTTL            int64  `env:"DEFAULT_TTL" envDefault:"900"`
 	DefaultNumberWorkers  int    `env:"DEFAULT_NUMBER_WORKER" envDefault:"4"`
 	DefaultChanelCapacity int    `env:"DEFAULT_CHANEL_CAPACITY" envDefault:"10000"`
+	REDIS_URL             string `env:"REDIS_URL" envDefault:"localhost:6379"`
 }
 
 func LoadConfig() *Config {

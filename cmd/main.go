@@ -17,7 +17,15 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
-	d := dispatcher.NewDispatcher(cfg.DefaultChanelCapacity)
+
+	// customPort t test run multiple instants
+	//customPort := flag.String("port", cfg.Port, "Port to run the server on")
+	//flag.Parse()
+
+	d := dispatcher.NewDispatcher(cfg.DefaultChanelCapacity, cfg.REDIS_URL)
+
+	d.StartRedisSubscriber()
+
 	d.StartWorkerPool(cfg.DefaultNumberWorkers)
 	h := api.NewHandle(d, cfg)
 

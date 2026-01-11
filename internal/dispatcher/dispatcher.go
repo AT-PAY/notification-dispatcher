@@ -1,15 +1,21 @@
 package dispatcher
 
 import (
+	"context"
+	"encoding/json"
 	"log"
 	"notification-dispatcher/internal/models"
 	"sync"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type Dispatcher struct {
 	IngestionChan chan models.NotificationMessage
 	Registry      *Registry
 	WG            sync.WaitGroup
+	RedisClient   *redis.Client
+	RedisChannel  string
 }
 
 type Client struct {
@@ -22,11 +28,44 @@ type Registry struct {
 	mu      sync.RWMutex
 }
 
-func NewDispatcher(capacity int) *Dispatcher {
+func NewDispatcher(capacity int, redisAddr string) *Dispatcher {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+	})
+
 	return &Dispatcher{
 		IngestionChan: make(chan models.NotificationMessage, capacity),
 		Registry:      newRegistry(),
+		RedisClient:   rdb,
+		RedisChannel:  "notifications",
 	}
+}
+
+func (d *Dispatcher) StartRedisSubscriber() {
+	ctx := context.Background()
+	pubsub := d.RedisClient.Subscribe(ctx, d.RedisChannel)
+
+	log.Printf("Subscribed to Redis channel: %s", d.RedisChannel)
+
+	go func() {
+		ch := pubsub.Channel()
+		for msg := range ch {
+			var notification models.NotificationMessage
+			if err := json.Unmarshal([]byte(msg.Payload), &notification); err != nil {
+				log.Printf("Error unmarshaling Redis msg: %v", err)
+				continue
+			}
+			d.IngestionChan <- notification
+		}
+	}()
+}
+
+func (d *Dispatcher) PublishToRedis(ctx context.Context, msg models.NotificationMessage) error {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	return d.RedisClient.Publish(ctx, d.RedisChannel, data).Err()
 }
 
 func (d *Dispatcher) StartWorkerPool(numberWorkers int) {
