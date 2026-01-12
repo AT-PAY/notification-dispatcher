@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"notification-dispatcher/internal/api"
 	"notification-dispatcher/internal/config"
+	"notification-dispatcher/internal/consumer"
 	"notification-dispatcher/internal/dispatcher"
 	"os"
 	"os/signal"
@@ -22,11 +23,16 @@ func main() {
 	//customPort := flag.String("port", cfg.Port, "Port to run the server on")
 	//flag.Parse()
 
-	d := dispatcher.NewDispatcher(cfg.DefaultChanelCapacity, cfg.REDIS_URL)
+	d := dispatcher.NewDispatcher(cfg.DefaultChanelCapacity, cfg.RedisUrl)
 
 	d.StartRedisSubscriber()
-
 	d.StartWorkerPool(cfg.DefaultNumberWorkers)
+
+	kafkaConsumer := consumer.NewKafkaConsumer(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.KafkaConsumerGroup, d)
+
+	ctxConsumer, cancelConsumer := context.WithCancel(context.Background())
+	go kafkaConsumer.Start(ctxConsumer)
+
 	h := api.NewHandle(d, cfg)
 
 	mux := http.NewServeMux()
@@ -56,6 +62,9 @@ func main() {
 	// 3. Wait here util receive Ctrl+C
 	<-stop
 	log.Println("\nShutdown signal received. Starting graceful shutdown...")
+
+	cancelConsumer()
+	kafkaConsumer.Close()
 
 	// 4. Setup time wait maximum for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
