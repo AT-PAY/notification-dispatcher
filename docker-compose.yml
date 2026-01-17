@@ -33,6 +33,19 @@ services:
         networks:
             - atpay-network
 
+    kafka-ui:
+        image: provectuslabs/kafka-ui:latest
+        container_name: kafka-ui
+        ports:
+            - "9090:8080"
+        depends_on:
+            - kafka
+        environment:
+            KAFKA_CLUSTERS_0_NAME: atpay-kafka
+            KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+        networks:
+            - atpay-network
+
 volumes:
     redis-notify:
         driver: local
