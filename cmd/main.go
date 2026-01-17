@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"notification-dispatcher/database"
 	"notification-dispatcher/internal/api"
 	"notification-dispatcher/internal/config"
 	"notification-dispatcher/internal/consumer"
@@ -18,6 +19,12 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
+
+	db, err := database.InitDB(cfg.PostgresURL)
+	if err != nil {
+		log.Fatalf("Failed to init DB: %v", err)
+	}
+	defer db.Close()
 
 	// customPort t test run multiple instants
 	//customPort := flag.String("port", cfg.Port, "Port to run the server on")

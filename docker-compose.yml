@@ -46,9 +46,24 @@ services:
         networks:
             - atpay-network
 
+    postgres-notify:
+        image: postgres:15-alpine
+        container_name: postgres-notify
+        ports:
+            - "5432:5432"
+        environment:
+            POSTGRES_USER: user_admin
+            POSTGRES_PASSWORD: password_admin
+            POSTGRES_DB: notification
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        networks:
+            - atpay-network
+
 volumes:
     redis-notify:
         driver: local
+    postgres_data:
 
 networks:
     atpay-network:

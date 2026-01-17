@@ -16,6 +16,7 @@ type Config struct {
 	KafkaBrokers          []string `env:"KAFKA_BROKERS" envSeparator:"," envDefault:"localhost:9092"`
 	KafkaTopic            string   `env:"KAFKA_TOPIC" envDefault:"notification_topic"`
 	KafkaConsumerGroup    string   `env:"KAFKA_CONSUMER_GROUP" envDefault:"notification_dispatcher_group"`
+	PostgresURL           string   `env:"POSTGRES_URL" envDefault:"postgres://user_admin:password_admin@localhost:5432/notification?sslmode=disable"`
 }
 
 func LoadConfig() *Config {
