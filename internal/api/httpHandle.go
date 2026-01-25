@@ -7,6 +7,7 @@ import (
 	"notification-dispatcher/internal/config"
 	"notification-dispatcher/internal/dispatcher"
 	"notification-dispatcher/internal/models"
+	"notification-dispatcher/internal/service"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -23,17 +24,15 @@ var upgrader = websocket.Upgrader{
 type Handle struct {
 	Dispatcher *dispatcher.Dispatcher
 	Config     *config.Config
+	svc        *service.NotificationService
 }
 
-func NewHandle(d *dispatcher.Dispatcher, cfg *config.Config) *Handle {
+func NewHandle(d *dispatcher.Dispatcher, cfg *config.Config, svc *service.NotificationService) *Handle {
 	return &Handle{
 		Dispatcher: d,
 		Config:     cfg,
+		svc:        svc,
 	}
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
 }
 
 func (h *Handle) SendNotificationHandle(w http.ResponseWriter, r *http.Request) {
@@ -42,30 +41,46 @@ func (h *Handle) SendNotificationHandle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req models.NotificationMessage
+	var req models.NotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	req.Timestamp = int64Ptr(time.Now().Unix())
-
-	if req.Priority == nil {
-		req.Priority = int64Ptr(h.Config.DefaultPriority)
+	// Convert request to Notification model
+	payloadBytes, err := json.Marshal(req.Data)
+	if err != nil {
+		http.Error(w, "Failed to marshal payload", http.StatusBadRequest)
+		return
 	}
 
-	if req.TimeToLive == nil {
-		req.TimeToLive = int64Ptr(h.Config.DefaultTTL)
+	notification := models.Notification{
+		UserID:        req.UserID,
+		EventType:     req.EventType,
+		Payload:       payloadBytes,
+		CorrelationID: req.CorrelationID,
+		Channels:      req.Channels,
+		CreatedAt:     time.Now(),
 	}
 
-	//h.Dispatcher.IngestionChan <- req
-	errPR := h.Dispatcher.PublishToRedis(r.Context(), req)
+	// Process immediately (save deliveries)
+	masterID, err := h.svc.ProcessNotification(r.Context(), notification)
+	if err != nil {
+		http.Error(w, "Failed to process notification", http.StatusInternalServerError)
+		return
+	}
+
+	// Update notification with master ID for dispatcher
+	notification.ID = masterID
+
+	// Publish to Redis for distribution across nodes
+	errPR := h.Dispatcher.PublishToRedis(r.Context(), notification)
 	if errPR != nil {
 		http.Error(w, "Failed to publish message", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
-	_, err := w.Write([]byte(`{"status": "accepted", "message": "Notification queued for dispatch"}`))
+	_, err = w.Write([]byte(`{"status": "accepted", "message": "Notification queued for dispatch"}`))
 	if err != nil {
 		return
 	}
@@ -86,7 +101,7 @@ func (h *Handle) WSHandler(w http.ResponseWriter, r *http.Request) {
 
 	client := &dispatcher.Client{
 		UserID:   userID,
-		SendChan: make(chan models.NotificationMessage, 256),
+		SendChan: make(chan models.NotificationResponse, 256),
 	}
 
 	h.Dispatcher.Registry.Register(client.UserID, client)

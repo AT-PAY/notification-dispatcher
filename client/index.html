@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Dispatcher Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .notification-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100">
+<div id="app" class="min-h-screen p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                    </svg>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Notification Dispatcher Test</h1>
+                        <p class="text-sm text-gray-500">WebSocket Testing Interface</p>
+                    </div>
+                </div>
+                <div id="connectionStatus" class="flex items-center gap-2 text-gray-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path>
+                    </svg>
+                    <span class="font-medium">Disconnected</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Panel -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Connection Settings -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">WebSocket Connection</h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Server URL</label>
+                            <input id="serverUrl" type="text" value="ws://localhost:8080"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                            <input id="userId" type="text" value="user-1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+
+                        <button id="connectBtn" onclick="toggleConnection()"
+                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md font-medium transition-colors">
+                            Connect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Send Notification -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Send Notification</h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Target User ID</label>
+                            <input id="targetUserId" type="text" value="user-1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+                            <select id="eventType" onchange="generateSampleData()"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="PAYMENT_SUCCESS">PAYMENT_SUCCESS</option>
+                                <option value="OTP_CODE">OTP_CODE</option>
+                                <option value="BALANCE_FLUCTUATION">BALANCE_FLUCTUATION</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data (JSON)</label>
+                            <textarea id="customData" rows="4"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm">{"amount": 5000000, "currency": "VND", "transaction_id": "TXN-2026-001", "merchant": "ABC Store"}</textarea>
+                            <button onclick="generateSampleData()"
+                                    class="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+                                Generate Sample Data
+                            </button>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Correlation ID (Optional)</label>
+                            <input id="correlationId" type="text" placeholder="Auto-generated if empty"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Channels (Select one or more)</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="channelWebSocket" value="WEB_SOCKET" checked
+                                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">🌐 WebSocket</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="channelPush" value="PUSH_NOTIFICATION"
+                                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">📱 Push Notification</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="channelSMS" value="SMS"
+                                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">💬 SMS</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="channelEmail" value="EMAIL"
+                                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">📧 Email</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button onclick="sendNotification()"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium transition-colors">
+                            Send Notification
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Statistics -->
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">Total</div>
+                        <div id="statTotal" class="text-2xl font-bold text-gray-800">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">Payment</div>
+                        <div id="statPayment" class="text-2xl font-bold text-green-600">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">OTP</div>
+                        <div id="statOtp" class="text-2xl font-bold text-blue-600">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">Balance</div>
+                        <div id="statBalance" class="text-2xl font-bold text-purple-600">0</div>
+                    </div>
+                </div>
+
+                <!-- Notifications List -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">
+                            Received Notifications (<span id="notifCount">0</span>)
+                        </h2>
+                        <button onclick="clearNotifications()"
+                                class="text-red-600 hover:text-red-700 text-sm font-medium">
+                            Clear All
+                        </button>
+                    </div>
+
+                    <div id="notificationsList" class="space-y-3 max-h-[600px] overflow-y-auto">
+                        <div class="text-center py-12 text-gray-400">
+                            <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                            </svg>
+                            <p>No notifications received yet</p>
+                            <p class="text-sm mt-1">Connect and send a notification to test</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let ws = null;
+    let isConnected = false;
+    let stats = { total: 0, payment: 0, otp: 0, balance: 0 };
+    let notifications = [];
+
+    function toggleConnection() {
+        if (isConnected) {
+            disconnect();
+        } else {
+            connect();
+        }
+    }
+
+    function connect() {
+        const serverUrl = document.getElementById('serverUrl').value;
+        const userId = document.getElementById('userId').value;
+
+        try {
+            ws = new WebSocket(`${serverUrl}/ws?user_id=${userId}`);
+
+            ws.onopen = () => {
+                isConnected = true;
+                updateConnectionStatus('connected');
+                updateConnectButton();
+                console.log('✅ WebSocket connected');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const notification = JSON.parse(event.data);
+                    addNotification(notification);
+                } catch (error) {
+                    console.error('Failed to parse notification:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus('error');
+            };
+
+            ws.onclose = () => {
+                isConnected = false;
+                updateConnectionStatus('disconnected');
+                updateConnectButton();
+                console.log('🔌 WebSocket disconnected');
+            };
+        } catch (error) {
+            alert('Failed to connect: ' + error.message);
+        }
+    }
+
+    function disconnect() {
+        if (ws) {
+            ws.close();
+        }
+    }
+
+    function updateConnectionStatus(status) {
+        const statusEl = document.getElementById('connectionStatus');
+        const statusMap = {
+            connected: {
+                color: 'text-green-600',
+                text: 'Connected',
+                icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path>'
+            },
+            disconnected: {
+                color: 'text-gray-400',
+                text: 'Disconnected',
+                icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path>'
+            },
+            error: {
+                color: 'text-red-600',
+                text: 'Error',
+                icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+            }
+        };
+
+        const config = statusMap[status];
+        statusEl.className = `flex items-center gap-2 ${config.color}`;
+        statusEl.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${config.icon}
+                </svg>
+                <span class="font-medium">${config.text}</span>
+            `;
+    }
+
+    function updateConnectButton() {
+        const btn = document.getElementById('connectBtn');
+        const serverUrl = document.getElementById('serverUrl');
+        const userId = document.getElementById('userId');
+
+        if (isConnected) {
+            btn.textContent = 'Disconnect';
+            btn.className = 'w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium transition-colors';
+            serverUrl.disabled = true;
+            userId.disabled = true;
+            serverUrl.classList.add('bg-gray-100');
+            userId.classList.add('bg-gray-100');
+        } else {
+            btn.textContent = 'Connect';
+            btn.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md font-medium transition-colors';
+            serverUrl.disabled = false;
+            userId.disabled = false;
+            serverUrl.classList.remove('bg-gray-100');
+            userId.classList.remove('bg-gray-100');
+        }
+    }
+
+    function addNotification(notification) {
+        notifications.unshift(notification);
+
+        // Update stats
+        stats.total++;
+        if (notification.event_type === 'PAYMENT_SUCCESS') stats.payment++;
+        if (notification.event_type === 'OTP_CODE') stats.otp++;
+        if (notification.event_type === 'BALANCE_FLUCTUATION') stats.balance++;
+
+        updateStats();
+        renderNotifications();
+    }
+
+    function updateStats() {
+        document.getElementById('statTotal').textContent = stats.total;
+        document.getElementById('statPayment').textContent = stats.payment;
+        document.getElementById('statOtp').textContent = stats.otp;
+        document.getElementById('statBalance').textContent = stats.balance;
+        document.getElementById('notifCount').textContent = notifications.length;
+    }
+
+    function getEventTypeIcon(type) {
+        const icons = {
+            'PAYMENT_SUCCESS': '💰',
+            'OTP_CODE': '🔐',
+            'BALANCE_FLUCTUATION': '💳'
+        };
+        return icons[type] || '📬';
+    }
+
+    function getEventTypeColor(type) {
+        const colors = {
+            'PAYMENT_SUCCESS': 'bg-green-100 text-green-800 border-green-300',
+            'OTP_CODE': 'bg-blue-100 text-blue-800 border-blue-300',
+            'BALANCE_FLUCTUATION': 'bg-purple-100 text-purple-800 border-purple-300'
+        };
+        return colors[type] || 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+
+    function renderNotifications() {
+        const container = document.getElementById('notificationsList');
+
+        if (notifications.length === 0) {
+            container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                        <p>No notifications received yet</p>
+                        <p class="text-sm mt-1">Connect and send a notification to test</p>
+                    </div>
+                `;
+            return;
+        }
+
+        container.innerHTML = notifications.map(notif => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow notification-enter">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">${getEventTypeIcon(notif.event_type)}</span>
+                            <span class="px-2 py-1 rounded-md text-xs font-medium border ${getEventTypeColor(notif.event_type)}">
+                                ${notif.event_type}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            ${new Date(notif.created_at).toLocaleTimeString()}
+                        </div>
+                    </div>
+
+                    <div class="space-y-1 text-sm">
+                        <div class="flex gap-2">
+                            <span class="text-gray-600 font-medium">User:</span>
+                            <span class="text-gray-800">${notif.user_id}</span>
+                        </div>
+                        ${notif.correlation_id ? `
+                            <div class="flex gap-2">
+                                <span class="text-gray-600 font-medium">Correlation:</span>
+                                <span class="text-gray-800 font-mono text-xs">${notif.correlation_id}</span>
+                            </div>
+                        ` : ''}
+                        <div class="mt-2">
+                            <span class="text-gray-600 font-medium">Payload:</span>
+                            <pre class="mt-1 bg-gray-50 p-2 rounded text-xs overflow-x-auto">${JSON.stringify(notif.payload, null, 2)}</pre>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    function clearNotifications() {
+        notifications = [];
+        stats = { total: 0, payment: 0, otp: 0, balance: 0 };
+        updateStats();
+        renderNotifications();
+    }
+
+    async function sendNotification() {
+        try {
+            const serverUrl = document.getElementById('serverUrl').value.replace('ws://', 'http://').replace('wss://', 'https://');
+            const targetUserId = document.getElementById('targetUserId').value;
+            const eventType = document.getElementById('eventType').value;
+            const customData = document.getElementById('customData').value;
+            const correlationId = document.getElementById('correlationId').value;
+
+            // Get selected channels
+            const channels = [];
+            if (document.getElementById('channelWebSocket').checked) channels.push('WEB_SOCKET');
+            if (document.getElementById('channelPush').checked) channels.push('PUSH_NOTIFICATION');
+            if (document.getElementById('channelSMS').checked) channels.push('SMS');
+            if (document.getElementById('channelEmail').checked) channels.push('EMAIL');
+
+            // Validate at least one channel is selected
+            if (channels.length === 0) {
+                alert('⚠️ Please select at least one channel!');
+                return;
+            }
+
+            const data = JSON.parse(customData);
+            const payload = {
+                user_id: targetUserId,
+                event_type: eventType,
+                data: data,
+                correlation_id: correlationId || `corr-${Date.now()}`,
+                channels: channels
+            };
+
+            const response = await fetch(`${serverUrl}/api/v1/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alert(`✅ Notification sent successfully to ${channels.length} channel(s)!\n\nChannels: ${channels.join(', ')}`);
+                document.getElementById('correlationId').value = '';
+            } else {
+                const error = await response.text();
+                alert(`❌ Failed to send: ${error}`);
+            }
+        } catch (error) {
+            alert(`❌ Error: ${error.message}`);
+        }
+    }
+
+    function generateSampleData() {
+        const eventType = document.getElementById('eventType').value;
+        const samples = {
+            'PAYMENT_SUCCESS': '{"amount": 5000000, "currency": "VND", "transaction_id": "TXN-2026-001", "merchant": "ABC Store"}',
+            'OTP_CODE': '{"code": "123456", "type": "LOGIN", "expires_in": 300, "attempts_left": 3}',
+            'BALANCE_FLUCTUATION': '{"new_balance": 15000000, "old_balance": 10000000, "change": 5000000}'
+        };
+        document.getElementById('customData').value = samples[eventType];
+    }
+</script>
+</body>
+</html>

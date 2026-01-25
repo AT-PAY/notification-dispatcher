@@ -11,6 +11,9 @@ import (
 	"notification-dispatcher/internal/config"
 	"notification-dispatcher/internal/consumer"
 	"notification-dispatcher/internal/dispatcher"
+	"notification-dispatcher/internal/middleware"
+	"notification-dispatcher/internal/persistence"
+	"notification-dispatcher/internal/service"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,29 +29,45 @@ func main() {
 	}
 	defer db.Close()
 
-	// customPort t test run multiple instants
-	//customPort := flag.String("port", cfg.Port, "Port to run the server on")
-	//flag.Parse()
+	// Initialize repository
+	notificationDB := persistence.NewNotificationRepository(db)
 
-	d := dispatcher.NewDispatcher(cfg.DefaultChanelCapacity, cfg.RedisUrl)
+	// Initialize template renderer
+	renderer := service.NewTemplateEngine()
+
+	// Initialize notification service
+	notificationService := service.NewNotificationService(notificationDB, renderer)
+
+	// Initialize dispatcher
+	d := dispatcher.NewDispatcher(cfg.DefaultChanelCapacity, cfg.RedisUrl, notificationService)
 
 	d.StartRedisSubscriber()
 	d.StartWorkerPool(cfg.DefaultNumberWorkers)
 
-	kafkaConsumer := consumer.NewKafkaConsumer(cfg.KafkaBrokers, cfg.KafkaTopic, cfg.KafkaConsumerGroup, d)
+	// Initialize Kafka consumer with all required dependencies
+	kafkaConsumer := consumer.NewKafkaConsumer(
+		cfg.KafkaBrokers,
+		cfg.KafkaTopic,
+		cfg.KafkaConsumerGroup,
+		d,
+		notificationService,
+	)
 
 	ctxConsumer, cancelConsumer := context.WithCancel(context.Background())
 	go kafkaConsumer.Start(ctxConsumer)
 
-	h := api.NewHandle(d, cfg)
+	h := api.NewHandle(d, cfg, notificationService)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/send", h.SendNotificationHandle)
 	mux.HandleFunc("/ws", h.WSHandler)
 
+	// config cors
+	handler := middleware.CorsMiddleware(mux)
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -60,15 +79,17 @@ func main() {
 
 	// 2. Run server in private Goroutine to don't block main flow
 	go func() {
-		log.Printf("Server starting on port %s...\n", cfg.Port)
+		log.Printf("🚀 Server starting on port %s...\n", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Server error: %v", err)
+			log.Fatalf("❌ Server error: %v", err)
 		}
 	}()
 
-	// 3. Wait here util receive Ctrl+C
+	log.Println("✅ All services initialized successfully")
+
+	// 3. Wait here until receive Ctrl+C
 	<-stop
-	log.Println("\nShutdown signal received. Starting graceful shutdown...")
+	log.Println("\n🛑 Shutdown signal received. Starting graceful shutdown...")
 
 	cancelConsumer()
 	kafkaConsumer.Close()
@@ -77,13 +98,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// 5. First: Stop request new HTTP
+	// 5. First: Stop accepting new HTTP requests
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("HTTP server shutdown error: %v", err)
+		log.Fatalf("❌ HTTP server shutdown error: %v", err)
 	}
 
-	// 6. Continue: Close Dispatcher and waiting Worker handle all message
+	// 6. Continue: Close Dispatcher and wait for workers to handle all messages
 	d.Shutdown()
 
-	log.Println("Server exited gracefully.")
+	log.Println("✅ Server exited gracefully.")
 }
