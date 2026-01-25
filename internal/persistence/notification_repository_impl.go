@@ -125,21 +125,15 @@ func (r *notificationRepository) GetDeliveriesByNotificationID(ctx context.Conte
         WHERE notification_id = $1
         ORDER BY created_at DESC
     `
-	rows, err := r.db.QueryContext(ctx, query, notificationID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 
-	var deliveries []models.NotificationDelivery
-	for rows.Next() {
-		var d models.NotificationDelivery
-		if err := rows.Scan(&d.ID, &d.NotificationID, &d.Channel, &d.Title, &d.Content, &d.Status, &d.ErrorDetail, &d.SentAt, &d.ReadAt, &d.CreatedAt); err != nil {
-			return nil, err
-		}
-		deliveries = append(deliveries, d)
+	var delveries []models.NotificationDelivery
+	err := r.db.SelectContext(ctx, &delveries, query, string(notificationID))
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get deliveries for notificationId %s: %w", notificationID, err)
 	}
-	return deliveries, rows.Err()
+
+	log.Printf("📋 Retrieved %d deliveries for NotificationId=%s", len(delveries), notificationID)
+	return delveries, nil
 }
 
 // MarkAsRead records when a user reads a notification

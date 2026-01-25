@@ -127,7 +127,7 @@ func (d *Dispatcher) worker(id int) {
 				// User online: send immediately
 				for _, client := range clients {
 					select {
-					case client.SendChan <- models.NotificationResponse{}:
+					case client.SendChan <- msg:
 						log.Printf("[Worker %d] ✅ Sent to WebSocket for UserID=%s", id, msg.UserID)
 					case <-time.After(2 * time.Second):
 						log.Printf("[Worker %d] ⚠️ Send channel timeout for UserID=%s", id, msg.UserID)
