@@ -77,9 +77,11 @@ func (r *notificationRepository) CreateDeliveries(ctx context.Context, deliverie
 	}
 
 	query := `
-		INSERT INTO notification_deliveries (notification_id, channel, title, content, status, created_at)
-		VALUES (:notification_id, :channel, :title, :content, :status, :created_at)
-	`
+    INSERT INTO notification_deliveries (notification_id, channel, title_vi, title_en, content_vi, content_en, status, created_at,created_by,updated_at,updated_by
+    )
+    VALUES (:notification_id, :channel, :title_vi, :title_en, :content_vi, :content_en, :status, :created_at,:created_by,:updated_at,:updated_by
+    )
+`
 
 	_, err := r.db.NamedExecContext(ctx, query, deliveries)
 	if err != nil {
@@ -120,7 +122,7 @@ func (r *notificationRepository) UpdateDeliveryStatus(ctx context.Context, deliv
 
 func (r *notificationRepository) GetDeliveriesByNotificationID(ctx context.Context, notificationID string) ([]models.NotificationDelivery, error) {
 	query := `
-        SELECT id, notification_id, channel, title, content, status, error_detail, sent_at, read_at, created_at
+        SELECT id, notification_id, channel, title_vi, title_en, content_vi, content_en, status, error_detail, sent_at, read_at, created_at
         FROM notification_deliveries
         WHERE notification_id = $1
         ORDER BY created_at DESC
@@ -219,7 +221,7 @@ func (r *notificationRepository) GetPendingRetries(ctx context.Context, limit in
 // GetHistoryByUserID retrieves paginated notification delivery history for a user
 func (r *notificationRepository) GetHistoryByUserID(ctx context.Context, userID string, limit, offset int) ([]models.NotificationDelivery, error) {
 	query := `
-		SELECT id, notification_id, channel, title, content, status, error_detail, sent_at, read_at, created_at
+		SELECT id, notification_id, channel, title_vi, title_en, content_vi, content_en, status, error_detail, sent_at, read_at, created_at
 		FROM notification_deliveries
 		WHERE notification_id IN (
 			SELECT id FROM notifications WHERE user_id = $1

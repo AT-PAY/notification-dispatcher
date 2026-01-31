@@ -32,19 +32,23 @@ type Notification struct {
 }
 
 type NotificationDelivery struct {
-	ID             string     `db:"id"`
-	NotificationID string     `db:"notification_id"`
-	Channel        string     `db:"channel"`
-	Title          string     `db:"title"`
-	Content        string     `db:"content"`
-	Status         string     `db:"status"`
-	ErrorDetail    *string    `db:"error_detail"`
-	SentAt         *time.Time `db:"sent_at"`
-	ReadAt         *time.Time `db:"read_at"`
-	CreatedAt      time.Time  `db:"created_at"`
-	CreatedBy      string     `db:"created_by"`
-	UpdatedAt      time.Time  `db:"updated_at"`
-	UpdatedBy      string     `db:"updated_by"`
+	ID             string `db:"id"`
+	NotificationID string `db:"notification_id"`
+	Channel        string `db:"channel"`
+
+	TitleVi   string `db:"title_vi"`
+	TitleEn   string `db:"title_en"`
+	ContentVi string `db:"content_vi"`
+	ContentEn string `db:"content_en"`
+
+	Status      string     `db:"status"`
+	ErrorDetail *string    `db:"error_detail"`
+	SentAt      *time.Time `db:"sent_at"`
+	ReadAt      *time.Time `db:"read_at"`
+	CreatedAt   time.Time  `db:"created_at"`
+	CreatedBy   string     `db:"created_by"`
+	UpdatedAt   time.Time  `db:"updated_at"`
+	UpdatedBy   string     `db:"updated_by"`
 }
 
 type NotificationRetry struct {

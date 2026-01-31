@@ -55,30 +55,53 @@ func (ns *NotificationService) ProcessNotification(ctx context.Context, req mode
 		return "", fmt.Errorf("failed to parse notification payload: %w", err)
 	}
 
-	// Step 4: Create delivery records for each channel
-	deliveries := make([]models.NotificationDelivery, 0, len(templates))
-
+	// Group templates by channel
+	templatesByChannel := make(map[string]map[string]models.NotificationTemplate)
 	for _, template := range templates {
 		if !slices.Contains(req.Channels, template.Channel) {
 			log.Printf("ℹ️ Skipping channel %s as it's not in requested channels", template.Channel)
 			continue
 		}
 
-		// Render title and content with dynamic data
-		title := ns.renderer.Render(template.TitleTemplate, payloadData)
-		content := ns.renderer.Render(template.ContentTemplate, payloadData)
+		if templatesByChannel[template.Channel] == nil {
+			templatesByChannel[template.Channel] = make(map[string]models.NotificationTemplate)
+		}
+		templatesByChannel[template.Channel][template.Language] = template
+	}
 
+	// Step 4: Create delivery records for each channel
+	deliveries := make([]models.NotificationDelivery, 0, len(templatesByChannel))
+
+	for channel, langTemplates := range templatesByChannel {
 		delivery := models.NotificationDelivery{
 			NotificationID: masterID,
-			Channel:        template.Channel,
-			Title:          title,
-			Content:        content,
+			Channel:        channel,
 			Status:         string(models.StatusPending),
 			CreatedAt:      time.Now(),
+			CreatedBy:      "system",
+			UpdatedAt:      time.Now(),
+			UpdatedBy:      "system",
+		}
+
+		// Render VI version
+		if tmplVi, ok := langTemplates["vi"]; ok {
+			delivery.TitleVi = ns.renderer.Render(tmplVi.TitleTemplate, payloadData)
+			delivery.ContentVi = ns.renderer.Render(tmplVi.ContentTemplate, payloadData)
+			log.Printf("📋 Rendered VI - Channel=%s, Title=%s", channel, delivery.TitleVi)
+		} else {
+			log.Printf("⚠️ Missing VI template for channel=%s", channel)
+		}
+
+		// Render EN version
+		if tmplEn, ok := langTemplates["en"]; ok {
+			delivery.TitleEn = ns.renderer.Render(tmplEn.TitleTemplate, payloadData)
+			delivery.ContentEn = ns.renderer.Render(tmplEn.ContentTemplate, payloadData)
+			log.Printf("📋 Rendered EN - Channel=%s, Title=%s", channel, delivery.TitleEn)
+		} else {
+			log.Printf("⚠️ Missing EN template for channel=%s", channel)
 		}
 
 		deliveries = append(deliveries, delivery)
-		log.Printf("📋 Prepared delivery: Channel=%s, Title=%s", template.Channel, title)
 	}
 
 	// Batch insert all deliveries
